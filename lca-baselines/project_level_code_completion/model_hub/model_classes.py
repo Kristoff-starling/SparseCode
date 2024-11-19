@@ -27,15 +27,18 @@ class HFModelBuilder(ModelBuilderBase):
     @staticmethod
     def _get_device() -> torch.device:
         if torch.cuda.is_available():
+            print('cuda is available')
             return torch.device('cuda')
         else:
+            print('cuda not available')
             return torch.device('cpu')
 
     @staticmethod
     def _update_kwargs(checkpoint, kwargs):
-        if 'attn_implementation' not in kwargs:
-            if 'starcoder' not in checkpoint:  # Quick fix for Flash-attention 2 and starcoder
-                kwargs['attn_implementation'] = 'flash_attention_2'
+        # temp: disable flash attention, couldn't download package
+        #if 'attn_implementation' not in kwargs:
+        #    if 'starcoder' not in checkpoint:  # Quick fix for Flash-attention 2 and starcoder
+        #        kwargs['attn_implementation'] = 'flash_attention_2'
         if 'torch_dtype' not in kwargs:
             kwargs['torch_dtype'] = torch.bfloat16
 

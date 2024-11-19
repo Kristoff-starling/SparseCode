@@ -1,5 +1,5 @@
 defaults:
-  - params: codellama7b
+  - params: deepseekcoder1b
   - composers_config: python_standard
   - dataset: small
 

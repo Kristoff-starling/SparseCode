@@ -68,6 +68,9 @@ class EvalPipeline:
         inference_params = config.params.inference_params
         eval_params = config.params.eval_params
         wandb_project_name = config.wandb_project_name
+        
+        print(inference_params['model'])
+        print(preprocess_params['tokenizer'])
 
         assert inference_params['model'] in MODEL_REGISTRY, (f'config: inference_params: model: '
                                                              f'{inference_params["model"]} is not in MODEL_REGISTRY')
@@ -110,6 +113,7 @@ class EvalPipeline:
         do_generation = self.config.do_generation
         seed = self.config.seed
         # Run Zero context scenario
+        print('running zero context')
         wb_run = wandb.init(project=self.project_name, group=f"zero_context", name=f"zero_context")
         results = list()
         result_0 = self.run_zero_context()
@@ -118,6 +122,7 @@ class EvalPipeline:
         print(results[-1])
         print()
         wb_run.finish()
+        print('finished zero context')
 
         # Initialization of config for LineGenerator
         self.generator_config = GeneratorConfig(
@@ -136,7 +141,9 @@ class EvalPipeline:
         for composer in self.composers:
             if composer == 'none':
                 continue
+            print('running composer')
             results = self.run_composer(composer, results)
+            print('finished composer')
 
         inference_out_dir_path = Path(self.inference_args.out_dir)
         if inference_out_dir_path.exists():
