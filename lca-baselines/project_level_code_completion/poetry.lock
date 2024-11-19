@@ -5408,7 +5408,7 @@ files = [
 
 [[package]]
 name = "torch"
-version = "2.0.0"
+version = "2.3.1"
 description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
 optional = false
 python-versions = ">=3.8.0"
@@ -5492,7 +5492,7 @@ visual = ["SciencePlots (>=2.0.0)", "matplotlib (>=3.3.0)"]
 
 [[package]]
 name = "torchvision"
-version = "0.15.1"
+version = "0.18.1"
 description = "image and video datasets and models for torch deep learning"
 optional = false
 python-versions = ">=3.8"
