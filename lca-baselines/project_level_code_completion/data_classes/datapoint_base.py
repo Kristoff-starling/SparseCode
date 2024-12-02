@@ -7,12 +7,12 @@ class DatapointBase:
     repo_name: str
     completion_lines: dict[str, list[int]]
     # completion_lines_raw: dict[str, list[int]]
-    context_dict: dict[str, str] | None = None  # keys are filepaths, values are file contents
-    completion_dict: dict[str, str] | None = None
-    context: str | None = None
-    completion: str | None = None
-    context_len: int | None = None
-    model_input: list[int] | None = None
+    context_dict = None  # keys are filepaths, values are file contents
+    completion_dict = None
+    context = None
+    completion = None
+    context_len = None
+    model_input = None
 
     def to_model_input(self, tokenizer_call: Callable):
         tokenized_content = tokenizer_call(self)
