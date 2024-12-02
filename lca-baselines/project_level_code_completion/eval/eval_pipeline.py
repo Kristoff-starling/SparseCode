@@ -5,6 +5,7 @@ import warnings
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Union
+import sys
 
 import hydra
 import omegaconf
@@ -98,6 +99,7 @@ class EvalPipeline:
                                     out_dir=os.path.join(dataset_out_dir, 'results'), **eval_params)
         self.out_dir = os.path.join(dataset_out_dir, 'results')
         self.composers = composers
+        print(self.composers)
         self.project_name = wandb_project_name
         self.generator_config: GeneratorConfig
 
@@ -113,28 +115,18 @@ class EvalPipeline:
     def run(self):
         do_generation = self.config.do_generation
         seed = self.config.seed
-        # Run Zero context scenario
-        print('running zero context')
-        wb_run = wandb.init(project=self.project_name, group=f"zero_context", name=f"zero_context")
         results = list()
-        result_0 = self.run_zero_context()
-        results.append(result_0)
-        wb_run.log(results[-1])
-        print(results[-1])
-        print()
-        wb_run.finish()
-        print('finished zero context')
 
         # Initialization of config for LineGenerator
         self.generator_config = GeneratorConfig(
             input_data_path=self.inference_args.input_data_path,
             seq_max_len=self.inference_args.seq_max_len - 100,
-            context_max=results[-1]["context"],
+            context_max=self.inference_args.context_max,
             model=self.inference_args.model,
             device=self.eval_args.device,
-            best_perplexity=results[-1]["perplexity"],
+            best_perplexity=sys.maxsize,
             tokenizer_path=self.preprocess_args.tokenizer,
-            composer=results[-1]["composer"],
+            composer="naive",
             seed=seed,
             results_path=os.path.join(self.out_dir, 'generation_results.jsonl')
         )
@@ -200,8 +192,6 @@ class EvalPipeline:
         print(f'>>Preprocessing for {composer} composer...')
         prepared_dataset_path = preprocess(self.preprocess_args, self.config.composers_config)
         self.inference_args.input_data_path = prepared_dataset_path
-
-        wb_run.log(results[0])
 
         first_step_context_size = 256
         final_step_context_size = self.inference_args.seq_max_len * 3 // 4
