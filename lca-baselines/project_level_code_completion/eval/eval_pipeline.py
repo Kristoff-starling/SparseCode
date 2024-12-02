@@ -4,6 +4,7 @@ import shutil
 import warnings
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from typing import Union
 
 import hydra
 import omegaconf
@@ -22,7 +23,7 @@ from model_hub.model_registry import MODEL_REGISTRY
 @dataclass
 class PreprocessConfig:
     model: str  # One of PREPROCESSORS from lca.code_generation.eval.preprocess
-    dataset: str | omegaconf.dictconfig.DictConfig  # Path to dataset or dictionary with `path`, `name` keys
+    dataset: Union[str, omegaconf.dictconfig.DictConfig]  # Path to dataset or dictionary with `path`, `name` keys
     tokenizer: str  # Path to tokenizer
     # config_path: str  # Path to composer configs
     composers: str  # One of COMPOSERS from lca.code_generation.eval.preprocess

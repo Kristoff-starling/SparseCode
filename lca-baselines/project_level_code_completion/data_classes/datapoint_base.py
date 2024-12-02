@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Callable
+from typing import Callable, Union
 
 @dataclasses.dataclass
 class DatapointBase:
@@ -7,12 +7,12 @@ class DatapointBase:
     repo_name: str
     completion_lines: dict[str, list[int]]
     # completion_lines_raw: dict[str, list[int]]
-    context_dict = None  # keys are filepaths, values are file contents
-    completion_dict = None
-    context = None
-    completion = None
-    context_len = None
-    model_input = None
+    context_dict: Union[dict[str, str], None] = None  # keys are filepaths, values are file contents
+    completion_dict: Union[dict[str, str], None] = None
+    context: Union[str, None] = None
+    completion: Union[str, None] = None
+    context_len: Union[int, None] = None
+    model_input: Union[list[int], None] = None
 
     def to_model_input(self, tokenizer_call: Callable):
         tokenized_content = tokenizer_call(self)

@@ -3,7 +3,7 @@ import json
 import multiprocessing
 import os.path
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional, Callable, Union
 
 import omegaconf
 from datasets import load_dataset
@@ -22,11 +22,11 @@ class TokenizerOutput:
 
 class PreprocessorBase:
     def __init__(self,
-                 dataset_params: str | dict,
-                 tokenizer_path: str | None = None,
+                 dataset_params: Union[str, dict],
+                 tokenizer_path: Union[str, None] = None,
                  context_len_char: int = 60_000,
-                 context_composer: Callable[[Dict[str, Any]], str] | None = None,
-                 completion_composer: Callable[[Dict[str, Any]], str] | None = None,
+                 context_composer: Union[Callable[[Dict[str, Any]], str], None] = None,
+                 completion_composer: Union[Callable[[Dict[str, Any]], str], None] = None,
                  data_source: str = 'hf',
                  ):
         self.dataset_params = dataset_params
@@ -125,7 +125,7 @@ class PreprocessorBase:
         with open(filepath, 'w') as f:
             json.dump(self.prepared_data, f)
 
-    def _load_data(self, dataset_params: str | dict) -> list[DatapointBase]:
+    def _load_data(self, dataset_params: Union[str, dict]) -> list[DatapointBase]:
         if True: #self.data_source == 'hf':
             data = list()
             if isinstance(dataset_params, str):
