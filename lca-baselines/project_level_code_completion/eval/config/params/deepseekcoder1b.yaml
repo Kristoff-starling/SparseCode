@@ -1,12 +1,12 @@
 preprocess_params:
   model: "huggingface"
-  composers: "none"
+  composers: "naive"
   tokenizer: "deepseek-ai/deepseek-coder-1.3b-base"
 
 inference_params :
     model: "deepseek-coder-1b"
     seq_max_len: 16000
-    input_data_path: ""
+      #input_data_path: ""
     context_max: -1
 
 eval_params:

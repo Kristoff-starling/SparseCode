@@ -94,7 +94,7 @@ class EvalPipeline:
         self.preprocess_args = PreprocessConfig(dataset=config.dataset, out_dir=os.path.join(dataset_out_dir, 'in'),
                                                 context_len_char=5 * inference_params['seq_max_len'],
                                                 **preprocess_params)
-        self.inference_args = InferenceConfig(out_dir=os.path.join(dataset_out_dir, 'out'), **inference_params)
+        self.inference_args = InferenceConfig(out_dir=os.path.join(dataset_out_dir, 'out'),input_data_path = os.path.join(os.getcwd(), dataset_out_dir, 'in', 'model_inputs_composer_' + self.preprocess_args.composers + '.json'), **inference_params)
         self.eval_args = EvalConfig(dataset_dir=self.inference_args.out_dir,
                                     out_dir=os.path.join(dataset_out_dir, 'results'), **eval_params)
         self.out_dir = os.path.join(dataset_out_dir, 'results')
@@ -126,10 +126,13 @@ class EvalPipeline:
             device=self.eval_args.device,
             best_perplexity=sys.maxsize,
             tokenizer_path=self.preprocess_args.tokenizer,
-            composer="naive",
+            composer=self.preprocess_args.composers,
             seed=seed,
             results_path=os.path.join(self.out_dir, 'generation_results.jsonl')
         )
+        # manual - create results directory
+        if not os.path.exists(os.path.join(os.getcwd(), self.out_dir)):
+            os.makedirs(os.path.join(os.getcwd(), self.out_dir))
 
         for composer in self.composers:
             if composer == 'none':
@@ -142,9 +145,9 @@ class EvalPipeline:
         if inference_out_dir_path.exists():
             shutil.rmtree(inference_out_dir_path)
 
-        with open(os.path.join(self.out_dir, 'completion_results.json'), 'w') as f:
-            json.dump(results, f, indent=4)
-        print(f">>Completion Results are in {os.path.join(self.out_dir, 'completion_results.json')}")
+        #with open(os.path.join(self.out_dir, 'completion_results.json'), 'w') as f:
+        #    json.dump(results, f, indent=4)
+        #print(f">>Completion Results are in {os.path.join(self.out_dir, 'completion_results.json')}")
 
         if do_generation:
             wb_run = wandb.init(
@@ -192,7 +195,8 @@ class EvalPipeline:
         print(f'>>Preprocessing for {composer} composer...')
         prepared_dataset_path = preprocess(self.preprocess_args, self.config.composers_config)
         self.inference_args.input_data_path = prepared_dataset_path
-
+        
+        """
         first_step_context_size = 256
         final_step_context_size = self.inference_args.seq_max_len * 3 // 4
         step_factor = (final_step_context_size / first_step_context_size) ** (1/2)  # Three steps are expected
@@ -231,6 +235,7 @@ class EvalPipeline:
 
             self.inference_args.context_max = int(self.inference_args.context_max*step_factor) + 1
         print()
+        """
         wb_run.finish()
 
         return results
