@@ -294,41 +294,7 @@ def evaluate_generation(args: GeneratorConfig):
         return em_dict, es_dict, sc_counts
 
     set_seed(args.seed)
-    em_dict_0, es_dict_0, line_counts_0 = process_results(use_zero_context=True)
-    set_seed(args.seed)
     em_dict, es_dict, line_counts = process_results(use_zero_context=False)
-    assert line_counts_0 == line_counts, "you have different line counts"
-    em_diff_dict = dict()
-    for sc_name in em_dict.keys():
-        em_list = em_dict[sc_name]
-        em_list_0 = em_dict_0[sc_name]
-        assert len(em_list) == len(em_list_0), 'your score has different lengths'
-        em_diff_dict[sc_name] = {
-            'positive': sum([(sc - sc_0) > 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
-            'negative': sum([(sc - sc_0) < 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
-            'zero': sum([(sc - sc_0) == 0 for sc, sc_0 in zip(em_list, em_list_0)]) / len(em_list),
-        }
-
-    return [
-        {
-            'em_zero': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in em_dict_0.items()},
-            'es_zero': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in es_dict_0.items()},
-            'em': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in em_dict.items()},
-            'es': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in es_dict.items()},
-        },
-        {
-            'em_zero_list': em_dict_0,
-            'es_zero_list': es_dict_0,
-            'em_list': em_dict,
-            'es_list': es_dict,
-        },
-        em_diff_dict,
-        line_counts
-    ]
-
-
-    # print(f'Final results for zero context: '
-    #       f'EM {sum(em_list) / len(em_list):.2f}, ES {sum(es_list) / len(es_list):.2f}')
 
 
 if __name__ == '__main__':
