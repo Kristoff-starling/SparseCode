@@ -94,7 +94,9 @@ class EvalPipeline:
         self.preprocess_args = PreprocessConfig(dataset=config.dataset, out_dir=os.path.join(dataset_out_dir, 'in'),
                                                 context_len_char=5 * inference_params['seq_max_len'],
                                                 **preprocess_params)
-        self.inference_args = InferenceConfig(out_dir=os.path.join(dataset_out_dir, 'out'),input_data_path = os.path.join(os.getcwd(), dataset_out_dir, 'in', 'model_inputs_composer_' + self.preprocess_args.composers + '.json'), **inference_params)
+        self.inference_args = InferenceConfig(out_dir=os.path.join(dataset_out_dir, 'out'), 
+                                              input_data_path=os.path.join(os.getcwd(), dataset_out_dir, 'in', 'model_inputs_composer_' + self.preprocess_args.composers + '.json'), 
+                                              **inference_params)
         self.eval_args = EvalConfig(dataset_dir=self.inference_args.out_dir,
                                     out_dir=os.path.join(dataset_out_dir, 'results'), **eval_params)
         self.out_dir = os.path.join(dataset_out_dir, 'results')
@@ -145,10 +147,6 @@ class EvalPipeline:
         if inference_out_dir_path.exists():
             shutil.rmtree(inference_out_dir_path)
 
-        #with open(os.path.join(self.out_dir, 'completion_results.json'), 'w') as f:
-        #    json.dump(results, f, indent=4)
-        #print(f">>Completion Results are in {os.path.join(self.out_dir, 'completion_results.json')}")
-
         if do_generation:
             wb_run = wandb.init(
                 project=self.config.wandb_project_name_generation,
@@ -196,46 +194,6 @@ class EvalPipeline:
         prepared_dataset_path = preprocess(self.preprocess_args, self.config.composers_config)
         self.inference_args.input_data_path = prepared_dataset_path
         
-        """
-        first_step_context_size = 256
-        final_step_context_size = self.inference_args.seq_max_len * 3 // 4
-        step_factor = (final_step_context_size / first_step_context_size) ** (1/2)  # Three steps are expected
-        self.inference_args.context_max = first_step_context_size
-        while self.inference_args.context_max <= self.inference_args.seq_max_len:
-            torch.cuda.empty_cache()
-            self.eval_args.out_dir = os.path.join(self.out_dir,
-                                                  f"context_{self.inference_args.context_max}_composer_{composer}")
-            self._resolve_directories()
-
-            print(f">>>>Model inference for context {self.inference_args.context_max}...")
-            lost_tokens = inference(self.inference_args)
-
-            print(">>>>>>Evaluation...")
-            mean_ppl = evaluate(self.eval_args)
-            results.append({"perplexity": mean_ppl, "context": self.inference_args.context_max,
-                            "composer": composer, "dataset": self.dataset_name,
-                            "model": self.inference_args.model} | lost_tokens)
-            print(results[-1])
-            wb_run.log(results[-1])
-
-            # Updating config for LineGenerator if got better score
-            if results[-1]["perplexity"] < self.generator_config.best_perplexity:
-                self.generator_config = GeneratorConfig(
-                    input_data_path=self.inference_args.input_data_path,
-                    seq_max_len=self.inference_args.seq_max_len - 100,
-                    context_max=results[-1]["context"],
-                    model=self.inference_args.model,
-                    device=self.eval_args.device,
-                    best_perplexity=results[-1]["perplexity"],
-                    tokenizer_path=self.preprocess_args.tokenizer,
-                    composer=results[-1]["composer"],
-                    seed=self.config.seed,
-                    results_path=os.path.join(self.out_dir, 'generation_results.jsonl')
-                )
-
-            self.inference_args.context_max = int(self.inference_args.context_max*step_factor) + 1
-        print()
-        """
         wb_run.finish()
 
         return results

@@ -296,6 +296,19 @@ def evaluate_generation(args: GeneratorConfig):
     set_seed(args.seed)
     em_dict, es_dict, line_counts = process_results(use_zero_context=False)
 
+    return [
+        {
+            'em': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in em_dict.items()},
+            'es': {sc_name: sum(m_list) / len(m_list) for sc_name, m_list in es_dict.items()},
+        },
+        {
+            'em_list': em_dict,
+            'es_list': es_dict,
+        },
+        dict(),
+        line_counts
+    ]
+
 
 if __name__ == '__main__':
     args = GeneratorConfig(
