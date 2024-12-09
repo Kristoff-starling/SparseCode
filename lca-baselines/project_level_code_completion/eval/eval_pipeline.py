@@ -10,7 +10,7 @@ import sys
 import hydra
 import omegaconf
 import torch.cuda
-import wandb
+# import wandb
 from omegaconf import DictConfig
 
 from composers.composer_registry import COMPOSERS
@@ -71,8 +71,6 @@ class EvalPipeline:
         eval_params = config.params.eval_params
         wandb_project_name = config.wandb_project_name
         
-        print(inference_params['model'])
-        print(preprocess_params['tokenizer'])
 
         assert inference_params['model'] in MODEL_REGISTRY, (f'config: inference_params: model: '
                                                              f'{inference_params["model"]} is not in MODEL_REGISTRY')
@@ -100,8 +98,7 @@ class EvalPipeline:
         self.eval_args = EvalConfig(dataset_dir=self.inference_args.out_dir,
                                     out_dir=os.path.join(dataset_out_dir, 'results'), **eval_params)
         self.out_dir = os.path.join(dataset_out_dir, 'results')
-        self.composers = composers
-        print(self.composers)
+        self.composers = {self.preprocess_args.composers: composers[self.preprocess_args.composers]}
         self.project_name = wandb_project_name
         self.generator_config: GeneratorConfig
 
@@ -148,16 +145,16 @@ class EvalPipeline:
             shutil.rmtree(inference_out_dir_path)
 
         if do_generation:
-            wb_run = wandb.init(
-                project=self.config.wandb_project_name_generation,
-                name='_'.join([self.generator_config.model, 'composer', self.generator_config.composer, self.dataset_name]),
-                config=asdict(self.generator_config)
-            )
+            # wb_run = wandb.init(
+            #     project=self.config.wandb_project_name_generation,
+            #     name='_'.join([self.generator_config.model, 'composer', self.generator_config.composer, self.dataset_name]),
+            #     config=asdict(self.generator_config)
+            # )
             gen_scores, gen_results, em_difference, line_counts = evaluate_generation(self.generator_config)
 
-            wb_run.log(gen_scores | {'EM_difference': em_difference, 'Line Counts': line_counts,
-                                     "dataset": self.dataset_name, "model": self.inference_args.model})
-            wb_run.finish()
+            # wb_run.log(gen_scores | {'EM_difference': em_difference, 'Line Counts': line_counts,
+            #                          "dataset": self.dataset_name, "model": self.inference_args.model})
+            # wb_run.finish()
             with open(os.path.join(self.out_dir, 'generation_scores.json'), 'w') as f:
                 json.dump(gen_results, f, indent=4)
             print(f">>Generation Results are in {os.path.join(self.out_dir, 'generation_scores.json')}")
@@ -188,13 +185,13 @@ class EvalPipeline:
                 "model": self.inference_args.model} | lost_tokens
 
     def run_composer(self, composer, results):
-        wb_run = wandb.init(project=self.project_name, group=f"{composer} composer", name=f"{composer} composer")
+        # wb_run = wandb.init(project=self.project_name, group=f"{composer} composer", name=f"{composer} composer")
         self.preprocess_args.composers = composer
         print(f'>>Preprocessing for {composer} composer...')
         prepared_dataset_path = preprocess(self.preprocess_args, self.config.composers_config)
         self.inference_args.input_data_path = prepared_dataset_path
         
-        wb_run.finish()
+        # wb_run.finish()
 
         return results
 
