@@ -9,5 +9,6 @@ COMPOSERS = {
         {'module': 'composers.half_memory_path_distance_composer', 'name': 'HalfMemoryPathDistanceComposer'},
     'function_class_mask_half': {'module': 'composers.function_class_half_mask', 'name': 'FuncClassComposer'},
     'function_class_mask_one': {'module': 'composers.function_class_mask_one', 'name': 'FuncClassComposerOne'},
+    'random': {'module': 'composer.random_composer', 'name':'RandomComposer'}
 #    'imports_first': {'module': 'composers.imports_first_composer', 'name': 'ImportsFirstComposer'},
 }
