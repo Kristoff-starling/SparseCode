@@ -73,7 +73,8 @@ class EvalPipeline:
         inference_params = config.params.inference_params
         eval_params = config.params.eval_params
         wandb_project_name = config.wandb_project_name
-        
+
+        self.config.composers_config['seq_max_len'] = inference_params['seq_max_len']
 
         assert inference_params['model'] in MODEL_REGISTRY, (f'config: inference_params: model: '
                                                              f'{inference_params["model"]} is not in MODEL_REGISTRY')
