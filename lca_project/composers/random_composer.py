@@ -8,7 +8,9 @@ class RandomComposer(OneCompletionFileComposer):
         # context = datapoint['context']
         context = datapoint.get_context()
         repo_name = datapoint.repo_name
-        composed_content = [path + self.meta_info_sep_symbol + content for path, content in random.shuffle(context.items())]
+        keys = list(context.keys())
+        random.shuffle(keys)
+        composed_content = [path + self.meta_info_sep_symbol + context[path] for path in keys]
 
         completion = datapoint.get_completion()
         assert len(completion) == 1, 'Only one file should be completed'
