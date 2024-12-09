@@ -1,0 +1,14 @@
+preprocess_params:
+  model: "huggingface"
+  composers: "naive"
+  tokenizer: "deepseek-ai/deepseek-coder-1.3b-base"
+
+inference_params :
+    model: "deepseek-coder-1b"
+    mode: sparse
+    seq_max_len: 16000
+      #input_data_path: ""
+    context_max: -1
+
+eval_params:
+    device: cuda
