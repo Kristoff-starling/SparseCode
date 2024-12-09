@@ -1,5 +1,6 @@
 import torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from model_hub.llama_sparse_attention import LlamaSparseForCausalLM
 
 
 class ModelBuilderBase:
@@ -11,12 +12,25 @@ class ModelBuilderBase:
 class HFModelBuilder(ModelBuilderBase):
     SEND_TO_DEVICE = True
     @classmethod
-    def build_model(cls, checkpoint, **kwargs):
+    def build_model(cls, checkpoint, mode="dense", **kwargs):
         kwargs = cls._update_kwargs(checkpoint, kwargs)
         device = cls._get_device()
-        model = AutoModelForCausalLM.from_pretrained(checkpoint,
-                                                     **kwargs
-                                                     )
+        if mode == "dense":
+            print(f"Evaluating dense model {checkpoint}")
+            model = AutoModelForCausalLM.from_pretrained(
+                checkpoint,
+                attn_implementation="eager",
+                **kwargs
+            )
+        elif mode == "sparse":
+            print(f"Evaluating sparse model {checkpoint}")
+            model = LlamaSparseForCausalLM.from_pretrained(
+                checkpoint,
+                attn_implementation="eager",
+                **kwargs
+            )
+        else:
+            raise ValueError(f"Unrecognized mode {mode}")
         if cls.SEND_TO_DEVICE:
             model = model.to(device)
         model.eval()

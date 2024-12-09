@@ -6,6 +6,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Union
 import sys
+import datetime
 
 import hydra
 import omegaconf
@@ -35,6 +36,7 @@ class PreprocessConfig:
 @dataclass
 class InferenceConfig:
     model: str  # One of MODEL_REGISTRY from model_hub.model_inference
+    mode: str # dense or sparse attention
     input_data_path: str  # the same as PreprocessConfig.out_dir
     seq_max_len: int  # Maximal possible sequence length
     context_max: int  # Maximal possible context length
@@ -54,6 +56,7 @@ class GeneratorConfig:
     seq_max_len: int
     context_max: int
     model: str
+    mode: str
     device: str
     best_perplexity: float
     tokenizer_path: str
@@ -122,6 +125,7 @@ class EvalPipeline:
             seq_max_len=self.inference_args.seq_max_len - 100,
             context_max=self.inference_args.context_max,
             model=self.inference_args.model,
+            mode=self.inference_args.mode,
             device=self.eval_args.device,
             best_perplexity=sys.maxsize,
             tokenizer_path=self.preprocess_args.tokenizer,
@@ -145,6 +149,7 @@ class EvalPipeline:
             shutil.rmtree(inference_out_dir_path)
 
         if do_generation:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             # wb_run = wandb.init(
             #     project=self.config.wandb_project_name_generation,
             #     name='_'.join([self.generator_config.model, 'composer', self.generator_config.composer, self.dataset_name]),
@@ -155,9 +160,10 @@ class EvalPipeline:
             # wb_run.log(gen_scores | {'EM_difference': em_difference, 'Line Counts': line_counts,
             #                          "dataset": self.dataset_name, "model": self.inference_args.model})
             # wb_run.finish()
-            with open(os.path.join(self.out_dir, 'generation_scores.json'), 'w') as f:
+            score_file = f"generation_scores_{timestamp}.json"
+            with open(os.path.join(self.out_dir, score_file), 'w') as f:
                 json.dump(gen_results, f, indent=4)
-            print(f">>Generation Results are in {os.path.join(self.out_dir, 'generation_scores.json')}")
+            print(f">>Generation Results are in {os.path.join(self.out_dir, score_file)}")
 
             return results, gen_results
 
