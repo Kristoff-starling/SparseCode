@@ -1,0 +1,12 @@
+.DS_Store
+*.db
+__pycache__/
+bin/
+generated/*
+
+# slurm job log
+job.*.out
+
+wandb/
+outputs/
+data/
