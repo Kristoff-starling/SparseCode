@@ -149,9 +149,14 @@ class LineGeneratorHF(SpecificLineGenerator):
                 if use_zero_context:
                     context, gt_line = self._get_zero_context(datapoint, line_num)
                 # When the context is too long, we want to crop the beginning for more efficient tokenization
-                if len(context) > self.max_seq_len * 6:
-                    context = context[-self.max_seq_len * 6:]
-                input_ids = self.tokenize(context)[..., -self.max_seq_len:]
+                crop_len = int(self.max_seq_len * 5)
+                if len(context) > crop_len:
+                    #print('context size is ' + str(len(context)) + ', but max allowed is ' + str(self.max_seq_len * 2.5))
+                    context = context[-crop_len:]
+                input_ids = self.tokenize(context)
+                #if input_ids.size()[1] > self.max_seq_len:
+                #    print('input ids size is ' + str(input_ids.size()[1]) + ', max allowed is ' + str(self.max_seq_len))
+                input_ids = input_ids[..., -self.max_seq_len:]
                 if input_ids.size(-1) < 1:
                     new_size = torch.Size(list(input_ids.size())[:-1] + [1])
                     input_ids = torch.full(new_size, self._tokenizer.bos_token_id)
