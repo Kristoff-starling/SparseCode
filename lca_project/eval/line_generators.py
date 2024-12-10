@@ -156,7 +156,7 @@ class LineGeneratorHF(SpecificLineGenerator):
                     new_size = torch.Size(list(input_ids.size())[:-1] + [1])
                     input_ids = torch.full(new_size, self._tokenizer.bos_token_id)
                 input_ids = input_ids.to(self.device)
-                out = self.model.generate(input_ids, **gen_config)
+                out = self.model.generate(input_ids, stored_attentions=True, **gen_config)
                 out = out[..., input_ids.size(-1):]
                 prediction = self.decode(out)
                 prediction = prediction.strip("\n")
@@ -247,7 +247,7 @@ def evaluate_generation(args: GeneratorConfig):
     else:
         raise NotImplementedError
     
-    input_data = input_data[:2]
+    input_data = input_data[:1]
     
     model, device = get_model(args)
 
