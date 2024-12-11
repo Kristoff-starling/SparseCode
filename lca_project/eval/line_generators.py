@@ -258,8 +258,9 @@ def evaluate_generation(args: GeneratorConfig):
         input_data = loaded_data.copy()
     else:
         raise NotImplementedError
-    
-    input_data = input_data[:10]
+
+    # use 5 datapoints for now 
+    input_data = input_data[20:25]
     
     model, device = get_model(args)
 
