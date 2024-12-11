@@ -1,0 +1,5 @@
+fuzzywuzzy[speedup]==0.18.0
+tree-sitter==0.21.3
+tree-sitter-python==0.21.0
+python-dotenv==1.0.1
+vllm==0.6.3.post1
