@@ -64,11 +64,25 @@ class LineGeneratorBase:
 
     def choose_lines(self, datapoint) -> list[int]:
         raise NotImplementedError
+    
+    @staticmethod
+    def _get_instruction(datapoint: DatapointBase, line_num: int) -> str:
+        """Returns system instruction to insert at beginning of prompt"""
+
+        path = datapoint.get_completion_file()
+        prefix = datapoint.get_prefix(line_num)
+        prefix_trunc = '\n'.join(prefix.split('\n')[-10:])
+        instr = "Your task is to complete the next line of code in the file " + path + ""\
+        " using the repository context below. Here is the end of the file " + path + ":\n\n" + prefix_trunc + "\n\n------"
+        return instr
 
     @staticmethod
     def _get_context(datapoint: DatapointBase, line_num: int) -> (str, str):
         """Method returns context and a line to predict"""
-        context = "\n".join([datapoint.context] + [datapoint.get_prefix(line_num)])
+        if datapoint.per_line_context is not None:
+            context = "\n".join([datapoint.per_line_context[line_num]] + [datapoint.get_prefix(line_num)])
+        else:
+            context = "\n".join([datapoint.context] + [datapoint.get_prefix(line_num)])
         gt_line = datapoint.get_line(line_num)
         return context, gt_line
 
@@ -112,6 +126,8 @@ class LineGeneratorBase:
             metric_name = list(sc_score.keys())[0]
         if len(metric_result) > 0:
             return {metric_name: agg_result / agg_len}
+        else:
+            return dict()
 
     def save_results(self, results):
         with jsonlines.open(self.results_path, 'a') as writer:
@@ -138,7 +154,7 @@ class LineGeneratorHF(SpecificLineGenerator):
         self._load_tokenizer()
 
     @torch.inference_mode()
-    def generate_line(self, datapoint: DatapointBase, use_zero_context: bool = False) -> dict[str, int]:
+    def generate_line(self, datapoint: DatapointBase, use_zero_context: bool = False, use_instruction: bool = True) -> dict[str, int]:
         dict_of_lines = self.load_lines(datapoint)
         gen_config = self._get_generation_config()
         for sc_name, list_of_lines in dict_of_lines.items():
@@ -151,12 +167,20 @@ class LineGeneratorHF(SpecificLineGenerator):
                 # When the context is too long, we want to crop the beginning for more efficient tokenization
                 crop_len = int(self.max_seq_len * 5)
                 if len(context) > crop_len:
-                    #print('context size is ' + str(len(context)) + ', but max allowed is ' + str(self.max_seq_len * 2.5))
                     context = context[-crop_len:]
+                
+                # tokenize separately so that we can truncate context from the beginning
+                instr_len = 0
+                if use_instruction:
+                    instr = self._get_instruction(datapoint, line_num)
+                    instr_input_ids = self.tokenize(instr)
+                    instr_len = instr_input_ids.size()[1]
+                
                 input_ids = self.tokenize(context)
-                #if input_ids.size()[1] > self.max_seq_len:
-                #    print('input ids size is ' + str(input_ids.size()[1]) + ', max allowed is ' + str(self.max_seq_len))
-                input_ids = input_ids[..., -self.max_seq_len:]
+                
+                input_ids = input_ids[..., -(self.max_seq_len - instr_len):]
+                if use_instruction:
+                    input_ids = torch.cat((instr_input_ids,  input_ids), dim=1)
                 if input_ids.size(-1) < 1:
                     new_size = torch.Size(list(input_ids.size())[:-1] + [1])
                     input_ids = torch.full(new_size, self._tokenizer.bos_token_id)
@@ -252,7 +276,7 @@ def evaluate_generation(args: GeneratorConfig):
     else:
         raise NotImplementedError
     
-    input_data = input_data[:1]
+    input_data = input_data[:]
     
     model, device = get_model(args)
 
@@ -269,6 +293,8 @@ def evaluate_generation(args: GeneratorConfig):
                 sc_counts = el_counts
             else:
                 for k in el_counts.keys():
+                    if k not in sc_counts:
+                        sc_counts[k] = 0
                     sc_counts[k] += el_counts[k]
             em = generator.calculate_exact_match()
             es = generator.calculate_edit_similarity()

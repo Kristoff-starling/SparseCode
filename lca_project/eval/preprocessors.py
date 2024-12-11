@@ -47,7 +47,10 @@ class PreprocessorBase:
     def prepare_data(self):
         print('Data Preparation...')
         self.prepared_data = list()
-        for datapoint in tqdm(self.data):
+
+        data = self.data[0:1]
+        
+        for datapoint in tqdm(data):
             new_datapoint = dict()
             new_datapoint['repo_id'] = datapoint.repo_id
             new_datapoint['repo_name'] = datapoint.repo_name
@@ -56,17 +59,49 @@ class PreprocessorBase:
             if self.context_composer is None:
                 new_datapoint['context'] = self.compose_context(datapoint)
             else:
-                new_datapoint['context'] = self.context_composer(datapoint)
+                result = self.context_composer(datapoint)
+                if isinstance(result, dict):
+                    new_datapoint['per_line_context'] = result
+                else:
+                    new_datapoint['context'] = result
             if self.completion_composer is None:
                 new_datapoint['completion'] = self.compose_completion(datapoint)
             else:
                 new_datapoint['completion'] = self.completion_composer(datapoint)
+            new_datapoint['completion_file_path'] = datapoint.get_completion_file()
 
             # Following fields must be filled after tokenization
             new_datapoint['context_len'] = None  # number of tokens in `context`
             new_datapoint['model_input'] = None  # tokenized `context` + tokenized `completion`
             # new_datapoint['common_api'] = common_api
-            self.prepared_data.append(type(datapoint)(**new_datapoint))
+
+            # expand to one datapoint per line, to be consistent in each case
+            if 'per_line_context' in new_datapoint:
+                for i in list(new_datapoint['per_line_context'].keys()):
+                    new_datapoint_for_line = dict()
+                    new_datapoint_for_line['repo_id'] = datapoint.repo_id
+                    new_datapoint_for_line['repo_name'] = datapoint.repo_name
+                    new_datapoint_for_line['completion_lines'] = { k: [i] for k in list(datapoint.completion_lines.keys()) if i in datapoint.completion_lines[k] }
+                    new_datapoint_for_line['context'] = new_datapoint['per_line_context'][i]
+                    new_datapoint_for_line['completion'] = new_datapoint['completion']
+                    new_datapoint_for_line['completion_file_path'] = datapoint.get_completion_file()
+                    new_datapoint_for_line['context_len'] = None
+                    new_datapoint_for_line['model_input'] = None
+                    self.prepared_data.append(type(datapoint)(**new_datapoint_for_line))
+            else:
+                for sc_name in list(datapoint.completion_lines.keys()):
+                    for i in datapoint.completion_lines[sc_name]:
+                        new_datapoint_for_line = dict()
+                        new_datapoint_for_line['repo_id'] = datapoint.repo_id
+                        new_datapoint_for_line['repo_name'] = datapoint.repo_name
+                        new_datapoint_for_line['completion_lines'] = { sc_name: [i] }
+                        new_datapoint_for_line['context'] = new_datapoint['context']
+                        new_datapoint_for_line['completion'] = new_datapoint['completion']
+                        new_datapoint_for_line['completion_file_path'] = datapoint.get_completion_file()
+                        new_datapoint_for_line['context_len'] = None
+                        new_datapoint_for_line['model_input'] = None
+                        self.prepared_data.append(type(datapoint)(**new_datapoint_for_line))
+
 
     def _datapoint_to_model_input(self, datapoint: DatapointBase) -> DatapointBase:
         datapoint = datapoint.to_model_input(self.tokenize_datapoint)
