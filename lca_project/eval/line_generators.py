@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+import time
 from dataclasses import dataclass
 from typing import Dict
 
@@ -23,6 +24,8 @@ class GeneratorConfig:
     seq_max_len: int
     context_max: int
     model: str
+    mode: str
+    attention_visualization: bool
     device: str
     best_perplexity: float
     tokenizer_path: str
@@ -154,7 +157,7 @@ class LineGeneratorHF(SpecificLineGenerator):
         self._load_tokenizer()
 
     @torch.inference_mode()
-    def generate_line(self, datapoint: DatapointBase, use_zero_context: bool = False, use_instruction: bool = True) -> dict[str, int]:
+    def generate_line(self, datapoint: DatapointBase, use_zero_context: bool = False, use_instruction: bool = True, attention_visualization: bool = False) -> dict[str, int]:
         dict_of_lines = self.load_lines(datapoint)
         gen_config = self._get_generation_config()
         for sc_name, list_of_lines in dict_of_lines.items():
@@ -184,8 +187,12 @@ class LineGeneratorHF(SpecificLineGenerator):
                 if input_ids.size(-1) < 1:
                     new_size = torch.Size(list(input_ids.size())[:-1] + [1])
                     input_ids = torch.full(new_size, self._tokenizer.bos_token_id)
+                # if line_num != 75:
+                    # continue
                 input_ids = input_ids.to(self.device)
-                out = self.model.generate(input_ids, stored_attentions=True, **gen_config)
+                if attention_visualization is True:
+                    gen_config["stored_attentions"] = True
+                out = self.model.generate(input_ids, **gen_config)
                 out = out[..., input_ids.size(-1):]
                 prediction = self.decode(out)
                 prediction = prediction.strip("\n")
@@ -285,10 +292,13 @@ def evaluate_generation(args: GeneratorConfig):
         es_dict = dict()
         em_dict['all'] = list()
         es_dict['all'] = list()
+        es_dict['time'] = list()
         sc_counts = None
         for datapoint in tqdm(input_data):
+            start_ts = time.time()
             generator = LineGeneratorHF(model, device, max_seq_len=args.seq_max_len, tokenizer_path=args.tokenizer_path, results_path=args.results_path)
-            el_counts = generator.generate_line(datapoint, use_zero_context=use_zero_context)
+            el_counts = generator.generate_line(datapoint, use_zero_context=use_zero_context, attention_visualization=args.attention_visualization)
+            duration = time.time() - start_ts
             if sc_counts is None:
                 sc_counts = el_counts
             else:
@@ -300,6 +310,7 @@ def evaluate_generation(args: GeneratorConfig):
             es = generator.calculate_edit_similarity()
             em_dict['all'].append(generator.aggregate_metric(em)['exact_match'])
             es_dict['all'].append(generator.aggregate_metric(es)['edit_similarity'])
+            es_dict['time'].append(duration)
             for sc_name in em.keys():
                 if sc_name not in em_dict:
                     em_dict[sc_name] = list()

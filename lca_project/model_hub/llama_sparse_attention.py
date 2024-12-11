@@ -12,7 +12,7 @@ from transformers.models.llama.modeling_llama import LlamaRMSNorm, LlamaAttentio
 from transformers.models.llama import LlamaConfig, LlamaModel, LlamaForCausalLM
 from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from transformers.cache_utils import Cache, DynamicCache
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 
 stored_attn_dir = os.path.join(str(Path(__file__).parent.parent), "data", f"run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
@@ -34,6 +34,27 @@ def visualize_attn_weights(attn_numpy: np.ndarray, file_path : str, block_size :
     pixel_data = (normalized_matrix * 255).astype(np.uint8)
     image = Image.fromarray(pixel_data, mode="L")
     image.save(file_path.replace("txt", "png"))
+
+
+sparse_attention_mask_hub: Dict[Tuple[int, int], torch.Tensor] = {}
+def get_sparse_attention_mask(q_len: int, k_len: int, device: torch.device) -> torch.Tensor:
+    A_width = 512
+    if sparse_attention_mask_hub.get((q_len, k_len)) is None:
+        sparse_attention_mask = torch.full((1, 1, q_len, k_len), float("-inf"))
+        # fill the first A_width columns with 0
+        for i in range(A_width):
+            sparse_attention_mask[:, :, :, i] = 0
+        if q_len == 1:
+            # for decoding, fill the last A_width columns with 0
+            for i in range(k_len - A_width, k_len - 1):
+                sparse_attention_mask[:, :, :, i] = 0
+        else:
+            # for prefilling fill the last A_width cells in each row with 0 (lower-triangular area)
+            for i in range(q_len):
+                for j in range(max(i - A_width, 0), i - 1):
+                    sparse_attention_mask[:, :, i, j] = 0
+        sparse_attention_mask_hub[(q_len, k_len)] = sparse_attention_mask.to(device)
+    return sparse_attention_mask_hub[(q_len, k_len)]
 
 
 class LlamaSparseAttention(LlamaAttention):
@@ -77,6 +98,11 @@ class LlamaSparseAttention(LlamaAttention):
         if attention_mask is not None:  # no matter the length, we just slice it
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
             attn_weights = attn_weights + causal_mask
+
+        # print(query_states.shape, key_states.shape, attention_mask.shape, causal_mask.shape)
+        # sparse_attention_mask = get_sparse_attention_mask(q_len)[:, :, :, : key_states.shape[-2]]
+        sparse_attention_mask = get_sparse_attention_mask(q_len, key_states.shape[-2], attn_weights.device)
+        attn_weights = attn_weights + sparse_attention_mask
 
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
