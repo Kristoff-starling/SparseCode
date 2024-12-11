@@ -48,7 +48,7 @@ class PreprocessorBase:
         print('Data Preparation...')
         self.prepared_data = list()
 
-        data = self.data[0:1]
+        data = self.data[20:25]
         
         for datapoint in tqdm(data):
             new_datapoint = dict()
