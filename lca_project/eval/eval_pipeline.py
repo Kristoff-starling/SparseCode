@@ -16,7 +16,7 @@ from omegaconf import DictConfig
 
 from composers.composer_registry import COMPOSERS
 from eval.eval import evaluate
-from eval.line_generators import evaluate_generation
+from eval.line_generators import evaluate_generation, GeneratorConfig
 from eval.preprocess import preprocess
 from model_hub.model_inference import inference
 from model_hub.model_registry import MODEL_REGISTRY
@@ -37,6 +37,7 @@ class PreprocessConfig:
 class InferenceConfig:
     model: str  # One of MODEL_REGISTRY from model_hub.model_inference
     mode: str # dense or sparse attention
+    attention_visualization: bool # visualize attention weights
     input_data_path: str  # the same as PreprocessConfig.out_dir
     seq_max_len: int  # Maximal possible sequence length
     context_max: int  # Maximal possible context length
@@ -48,21 +49,6 @@ class EvalConfig:
     device: str
     out_dir: str  # Directory to save results of the evaluation
     dataset_dir: str  # the same as InferenceConfig.out_dir
-
-
-@dataclass
-class GeneratorConfig:
-    input_data_path: str
-    seq_max_len: int
-    context_max: int
-    model: str
-    mode: str
-    device: str
-    best_perplexity: float
-    tokenizer_path: str
-    composer: str
-    seed: int
-    results_path: str
 
 
 class EvalPipeline:
@@ -127,6 +113,7 @@ class EvalPipeline:
             context_max=self.inference_args.context_max,
             model=self.inference_args.model,
             mode=self.inference_args.mode,
+            attention_visualization=self.inference_args.attention_visualization,
             device=self.eval_args.device,
             best_perplexity=sys.maxsize,
             tokenizer_path=self.preprocess_args.tokenizer,
@@ -161,7 +148,7 @@ class EvalPipeline:
             # wb_run.log(gen_scores | {'EM_difference': em_difference, 'Line Counts': line_counts,
             #                          "dataset": self.dataset_name, "model": self.inference_args.model})
             # wb_run.finish()
-            score_file = f"generation_scores_{timestamp}.json"
+            score_file = f"generation_scores_{timestamp}_{self.inference_args.mode}_{'-'.join(self.composers)}.json"
             with open(os.path.join(self.out_dir, score_file), 'w') as f:
                 json.dump(gen_results, f, indent=4)
             print(f">>Generation Results are in {os.path.join(self.out_dir, score_file)}")
