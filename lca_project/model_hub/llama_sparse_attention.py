@@ -2,6 +2,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import datetime
 import torch
 import torch.nn.functional as F
 from pathlib import Path
@@ -14,10 +15,10 @@ from transformers.cache_utils import Cache, DynamicCache
 from typing import Dict, List, Optional, Tuple, Union
 
 
-lca_project_dir = str(Path(__file__).parent.parent)
+stored_attn_dir = os.path.join(str(Path(__file__).parent.parent), "data", f"run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
 
 
-def visualize_attn_weights(attn_numpy: np.ndarray, file_path : str, block_size : int = 64):
+def visualize_attn_weights(attn_numpy: np.ndarray, file_path : str, block_size : int = 16):
     pad_h = (block_size - attn_numpy.shape[0] % block_size) % block_size
     pad_w = (block_size - attn_numpy.shape[1] % block_size) % block_size
     padded_matrix = np.pad(attn_numpy, ((0, pad_h), (0, pad_w)), mode='constant', constant_values=-np.inf)
@@ -120,9 +121,11 @@ class LlamaSparseAttention(LlamaAttention):
 
         attn_output = self.o_proj(attn_output)
 
-        if stored_attentions is True and q_len > 1:
+        if False and q_len > 1 and (self.layer_idx == 0 or self.layer_idx == 11 or self.layer_idx == 23):
             # prefill stage
-            file_path = os.path.join(lca_project_dir, "data", f"attention_weights_{self.layer_idx}.txt")
+            if not os.path.exists(stored_attn_dir):
+                os.makedirs(stored_attn_dir)
+            file_path = os.path.join(stored_attn_dir, f"attention_weights_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_layer{self.layer_idx}.txt")
             if not os.path.exists(file_path):
                 attn_numpy = attn_weights[0, 0, :, :].cpu().to(dtype=torch.float32).numpy()
                 visualize_attn_weights(attn_numpy, file_path)
