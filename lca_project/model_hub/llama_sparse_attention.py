@@ -56,6 +56,52 @@ def get_sparse_attention_mask(q_len: int, k_len: int, device: torch.device) -> t
         sparse_attention_mask_hub[(q_len, k_len)] = sparse_attention_mask.to(device)
     return sparse_attention_mask_hub[(q_len, k_len)]
 
+def calculate_ashape_similarity(attn_numpy: np.ndarray, results_file: str, A_width: int=512, block_size: int=16):
+    # first do max-pooling
+    pad_h = (block_size - attn_numpy.shape[0] % block_size) % block_size
+    pad_w = (block_size - attn_numpy.shape[1] % block_size) % block_size
+    padded_matrix = np.pad(attn_numpy, ((0, pad_h), (0, pad_w)), mode='constant', constant_values=-np.inf)
+    h, w = padded_matrix.shape
+    padded_matrix = padded_matrix.reshape(h // block_size, block_size, w // block_size, block_size)
+    pooled_matrix = padded_matrix.max(axis=(1, 3))
+    # calculate distance-based metric
+    block_width = A_width / block_size
+    score = 0
+    max = 0
+    for i in range(pooled_matrix.shape[0]):
+        for j in range(i):
+            if block_width < j and j < i - block_width:
+                # penalize
+                distance = min(j - block_width, i - block_width - j)
+                score += distance * pooled_matrix[i][j]
+                max += distance
+    max *= np.max(pooled_matrix)
+    normalized_score = score / max
+    with open(results_file, "a") as f:
+        f.write(str(normalized_score) + '\n')
+
+def calculate_ashape_mass_ratio(attn_numpy: np.ndarray, results_file: str, A_width: int=512, block_size: int=16):
+    # first do max-pooling
+    pad_h = (block_size - attn_numpy.shape[0] % block_size) % block_size
+    pad_w = (block_size - attn_numpy.shape[1] % block_size) % block_size
+    padded_matrix = np.pad(attn_numpy, ((0, pad_h), (0, pad_w)), mode='constant', constant_values=-np.inf)
+    h, w = padded_matrix.shape
+    padded_matrix = padded_matrix.reshape(h // block_size, block_size, w // block_size, block_size)
+    pooled_matrix = padded_matrix.max(axis=(1, 3))
+    # calculate distance-based metric
+    block_width = A_width / block_size
+    dropped_mass = 0.0
+    total_mass = 0.0
+    for i in range(pooled_matrix.shape[0]):
+        for j in range(i):
+            if block_width < j and j < i - block_width:
+                # penalize
+                dropped_mass += pooled_matrix[i][j]
+            total_mass += pooled_matrix[i][j]
+    score = (total_mass - dropped_mass) / total_mass
+    with open(results_file, "a") as f:
+        f.write(str(score) + '\n')
+
 
 class LlamaSparseAttention(LlamaAttention):
     def forward(
@@ -101,8 +147,8 @@ class LlamaSparseAttention(LlamaAttention):
 
         # print(query_states.shape, key_states.shape, attention_mask.shape, causal_mask.shape)
         # sparse_attention_mask = get_sparse_attention_mask(q_len)[:, :, :, : key_states.shape[-2]]
-        sparse_attention_mask = get_sparse_attention_mask(q_len, key_states.shape[-2], attn_weights.device)
-        attn_weights = attn_weights + sparse_attention_mask
+        #sparse_attention_mask = get_sparse_attention_mask(q_len, key_states.shape[-2], attn_weights.device)
+        #attn_weights = attn_weights + sparse_attention_mask
 
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
@@ -121,14 +167,18 @@ class LlamaSparseAttention(LlamaAttention):
 
         attn_output = self.o_proj(attn_output)
 
-        if False and q_len > 1 and (self.layer_idx == 0 or self.layer_idx == 11 or self.layer_idx == 23):
+        if stored_attentions and q_len > 1 and (self.layer_idx == 0 or self.layer_idx == 11 or self.layer_idx == 23):
             # prefill stage
             if not os.path.exists(stored_attn_dir):
                 os.makedirs(stored_attn_dir)
-            file_path = os.path.join(stored_attn_dir, f"attention_weights_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_layer{self.layer_idx}.txt")
-            if not os.path.exists(file_path):
-                attn_numpy = attn_weights[0, 0, :, :].cpu().to(dtype=torch.float32).numpy()
-                visualize_attn_weights(attn_numpy, file_path)
+            ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            weights_path = os.path.join(stored_attn_dir, f"attention_weights_{ts}_layer{self.layer_idx}.txt")
+            attn_numpy = attn_weights[0, 0, :, :].cpu().to(dtype=torch.float32).numpy()
+            visualize_attn_weights(attn_numpy, weights_path)
+            distance_score_path = weights_path = os.path.join(stored_attn_dir, f"distance_score_layer{self.layer_idx}.txt")
+            calculate_ashape_similarity(attn_numpy, distance_score_path)
+            mass_ratio_path = weights_path = os.path.join(stored_attn_dir, f"mass_ratio_layer{self.layer_idx}.txt")
+            calculate_ashape_mass_ratio(attn_numpy, weights_path)
 
         if not output_attentions:
             attn_weights = None
